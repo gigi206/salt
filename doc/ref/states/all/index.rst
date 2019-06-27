@@ -72,6 +72,7 @@ state modules
     cloud
     cmd
     composer
+    cpan
     cron
     csf
     cyg
