@@ -130,6 +130,7 @@ should match what you see when you look at the properties for an object.
 # Import Python libs
 from __future__ import absolute_import, print_function, unicode_literals
 import logging
+import ctypes
 
 # Import Salt libs
 from salt.exceptions import CommandExecutionError, SaltInvocationError
@@ -1958,6 +1959,9 @@ def copy_security(source,
             obj_type='registry',
             copy_owner=False)
     '''
+    if bool(ctypes.windll.shell32.IsUserAnAdmin()) is False:
+        return True
+
     obj_dacl = dacl(obj_type=obj_type)
     if 'registry' in obj_type.lower():
         source = obj_dacl.get_reg_name(source)
