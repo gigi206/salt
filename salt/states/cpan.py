@@ -78,7 +78,9 @@ def __install(name,
         if cpan_install_call.get('error', None):
             ret['comment'] = cpan_install_call.pop('error')
             ret['result'] = False
-        if cpan_install_call:
+        if 'error' in cpan_install_call:
+            del cpan_install_call['error']
+        if cpan_install_call.get('new') or cpan_install_call.get('old'):
             ret['changes'][mod] = cpan_install_call
         # Quit on the first error
         if ret['comment']:

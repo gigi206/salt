@@ -121,7 +121,7 @@ def install(module,
     if cmd_ret.get('retcode', None):
         ret['error'] = cmd_ret['stderr']
 
-    new_info = show(module)
+    new_info = show(module, bin_env=bin_env)
 
     if not new_info:
         ret['error'] = 'Could not install module {}'.format(module)
@@ -141,7 +141,7 @@ def install(module,
     return ret
 
 
-def remove(module, details=False):
+def remove(module, details=False, bin_env=None):
     '''
     Attempt to remove a Perl module that was installed from CPAN. Because the
     ``cpan`` command doesn't actually support 'uninstall'-like functionality,
@@ -161,7 +161,7 @@ def remove(module, details=False):
         'new': None
     }
 
-    info = show(module)
+    info = show(module, bin_env=bin_env)
     ret['error'] = info.get('error', None)
 
     cpan_version = info.get(' version', None)
@@ -204,7 +204,7 @@ def remove(module, details=False):
             else:
                 rm_details[file_] = 'unable to remove'
 
-        new_info = show(module)
+        new_info = show(module, bin_env=bin_env)
 
         if details:
             ret['details'] = rm_details
