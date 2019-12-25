@@ -64,7 +64,7 @@ def version(bin_env=None):
 
         salt '*' cpan.version
     '''
-    return show('CPAN', bin_env=bin_env).get('installed version', None)
+    return show('CPAN', bin_env=bin_env).get('version', None)
 
 
 def install(module,
@@ -83,7 +83,6 @@ def install(module,
         salt '*' cpan.install Template::Alloy
     '''
     # Get the state of the package before the install operations
-    log.debug('logging works!')
     old_info = show(module, bin_env=bin_env)
 
     # Initialize the standard return information for this function
@@ -164,19 +163,19 @@ def remove(module, details=False, bin_env=None):
     info = show(module, bin_env=bin_env)
     ret['error'] = info.get('error', None)
 
-    cpan_version = info.get(' version', None)
+    cpan_version = info.get('installed_version', None)
     if (cpan_version is None) or ('not installed' in cpan_version):
         log.debug('Module "{}" already removed, no changes made'.format(module))
     else:
         mod_pathfile = module.replace('::', '/') + '.pm'
-        ins_path = info['installed file'].replace(mod_pathfile, '')
+        ins_path = info['installed_file'].replace(mod_pathfile, '')
 
         rm_details = {}
-        if 'cpan build dirs' in info:
+        if 'cpan_build_dirs' in info:
             log.warning('No CPAN data available to use for uninstalling')
 
         files = []
-        for build_dir in info['cpan build dirs']:
+        for build_dir in info['cpan_build_dirs']:
             # Check if the build directory exists, if not then skip
             if not os.path.isdir(build_dir):
                 log.warning(
@@ -197,7 +196,7 @@ def remove(module, details=False, bin_env=None):
 
         for file_ in files:
             if file_ in rm_details:
-                log.trace('Removing %s', file_)
+                log.trace('Removing {}'.format(file_))
                 continue
             if __salt__['file.remove'](file_):
                 rm_details[file_] = 'removed'
@@ -260,54 +259,44 @@ def show(module, bin_env=None):
     cmd.extend(['-D', module])
     out = __salt__['cmd.run_all'](cmd, env=default_env).get('stdout', '')
     parse = False
-    info = []
+    # info = {}
     for line in out.splitlines():
         # Once the dashes appear we are looking at the module info
         if line.startswith('-' * 20):
             parse = True
             continue
-        if not parse:
-            continue
-        info.append(line)
+        elif line.strip().startswith('Installed:'):
+            version = line.split(':')[-1].strip()
+            ret['installed_version'] = version
+            ret['installed'] = version != 'not installed'
+        elif line.strip().startswith('CPAN:'):
+            version = line.split(':')[-1].strip().split()[0]
+            ret['cpan_version'] = version
+        elif line.strip().endswith('.pm'):
+            ret['installed_file'] = line.strip()
+        elif line.strip().endswith('.tar.gz'):
+            ret['cpan_file'] = line.strip()
 
-    if len(info) == 6:
-        # If the module is not installed, we'll be short a line
-        info.insert(2, '')
-    if len(info) < 6:
-        # This must not be a real package
+    ret['updtodate'] = ret.get('installed_version', 'installed_version') == ret.get('cpan_version', 'cpan_version')
+
+    if parse is False:
         ret.update({'error': 'Could not find package {}'.format(module)})
         return ret
-
-    ret['installed version'] = None
-    ret['description'] = info[0].strip()
-    ret['cpan file'] = info[1].strip()
-    if info[2].strip():
-        ret['installed file'] = info[2].strip()
-    else:
-        ret['installed file'] = None
-    comps = info[3].split(':')
-    if len(comps) > 1:
-        ret['installed version'] = comps[1].strip()
-    comps = info[4].split(':')
-    comps = comps[1].split()
-    ret['cpan version'] = comps[0].strip()
-    ret['author name'] = info[5].strip()
-    ret['author email'] = info[6].strip()
 
     # Check and see if there are cpan build directories
     cfg = config(bin_env)
     build_dir = cfg.get('build_dir', None)
     if build_dir is not None:
-        ret['cpan build dirs'] = []
+        ret['cpan_build_dirs'] = []
         builds = []
         if os.path.exists(build_dir):
             builds = os.listdir(build_dir)
-        else:
-            ret.update({'comment': '\'{}\' is not a path'.format(build_dir)})
+        # else:
+        #     ret.update({'comment': '\'{}\' is not a path'.format(build_dir)})
         pfile = module.replace('::', '-')
         for file_ in builds:
             if file_.startswith(pfile):
-                ret['cpan build dirs'].append(os.path.join(build_dir, file_))
+                ret['cpan_build_dirs'].append(os.path.join(build_dir, file_))
     return ret
 
 

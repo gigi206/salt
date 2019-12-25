@@ -58,7 +58,7 @@ def __install(name,
     ret['result'] = True
     for mod in modules:
         # Ignore modules that are already installed, don't force everything to update
-        version = __salt__['cpan.show'](mod, bin_env=bin_env).get("installed version", None)
+        version = __salt__['cpan.show'](mod, bin_env=bin_env).get("installed_version", None)
         if version and 'not installed' not in version:
             if upgrade:
                 log.debug("Attempting to upgrade '{}'")
