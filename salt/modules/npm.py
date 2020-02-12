@@ -33,15 +33,16 @@ def __virtual__():
     '''
     Only work when npm is installed.
     '''
-    try:
-        if salt.utils.path.which('npm') is not None:
-            _check_valid_version()
-            return True
-        else:
-            return (False, 'npm execution module could not be loaded '
-                           'because the npm binary could not be located')
-    except CommandExecutionError as exc:
-        return (False, six.text_type(exc))
+    return True
+    # try:
+    #     if salt.utils.path.which('npm') is not None:
+    #         _check_valid_version()
+    #         return True
+    #     else:
+    #         return (False, 'npm execution module could not be loaded '
+    #                        'because the npm binary could not be located')
+    # except CommandExecutionError as exc:
+    #     return (False, six.text_type(exc))
 
 
 def _check_valid_version():
