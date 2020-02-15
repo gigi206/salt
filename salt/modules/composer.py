@@ -34,7 +34,7 @@ def _valid_composer(composer):
     """
     Validate the composer file is indeed there.
     """
-    if salt.utils.path.which(composer):
+    if salt.utils.path.which(composer) or os.path.isfile(composer):
         return True
     return False
 
