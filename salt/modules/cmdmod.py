@@ -283,12 +283,12 @@ def _run(cmd,
     '''
     if 'pillar' in kwargs and not pillar_override:
         pillar_override = kwargs['pillar']
-    if output_loglevel != 'quiet' and _is_valid_shell(shell) is False:
-        log.warning(
-            'Attempt to run a shell command with what may be an invalid shell! '
-            'Check to ensure that the shell <%s> is valid for this user.',
-            shell
-        )
+    # if output_loglevel != 'quiet' and _is_valid_shell(shell) is False:
+    #     log.warning(
+    #         'Attempt to run a shell command with what may be an invalid shell! '
+    #         'Check to ensure that the shell <%s> is valid for this user.',
+    #         shell
+    #     )
 
     output_loglevel = _check_loglevel(output_loglevel)
     log_callback = _check_cb(log_callback)
