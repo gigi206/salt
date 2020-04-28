@@ -683,7 +683,7 @@ def install(pkgs=None,  # pylint: disable=R0912,R0913,R0914
     if error:
         return error
 
-    cur_version = version(bin_env, cwd)
+    cur_version = version(bin_env, cwd, env_vars)
 
     if use_wheel:
         min_version = '1.4'
@@ -1003,7 +1003,8 @@ def uninstall(pkgs=None,
               user=None,
               cwd=None,
               saltenv='base',
-              use_vt=False):
+              use_vt=False,
+              env_vars=None):
     '''
     Uninstall packages individually or from a pip requirements file
 
@@ -1121,6 +1122,8 @@ def uninstall(pkgs=None,
                       cwd=cwd, saltenv=saltenv, use_vt=use_vt)
     if bin_env and os.path.isdir(bin_env):
         cmd_kwargs['env'] = {'VIRTUAL_ENV': bin_env}
+    if env_vars:
+        cmd_kwargs.setdefault('env', {}).update(_format_env_vars(env_vars))
 
     try:
         return __salt__['cmd.run_all'](cmd, **cmd_kwargs)
@@ -1174,7 +1177,7 @@ def freeze(bin_env=None,
 
     # Include pip, setuptools, distribute, wheel
     min_version = '8.0.3'
-    cur_version = version(bin_env, cwd)
+    cur_version = version(bin_env, cwd, env_vars)
     if salt.utils.versions.compare(ver1=cur_version, oper='<', ver2=min_version):
         logger.warning(
             'The version of pip installed is %s, which is older than %s. '
@@ -1228,7 +1231,7 @@ def list_(prefix=None,
     packages = {}
 
     if prefix is None or 'pip'.startswith(prefix):
-        packages['pip'] = version(bin_env, cwd)
+        packages['pip'] = version(bin_env, cwd, env_vars)
 
     for line in freeze(bin_env=bin_env,
                        user=user,
@@ -1272,7 +1275,7 @@ def list_(prefix=None,
     return packages
 
 
-def version(bin_env=None, cwd=None):
+def version(bin_env=None, cwd=None, env_vars=None):
     '''
     .. versionadded:: 0.17.0
 
@@ -1299,7 +1302,11 @@ def version(bin_env=None, cwd=None):
     cmd = _get_pip_bin(bin_env)[:]
     cmd.append('--version')
 
-    ret = __salt__['cmd.run_all'](cmd, cwd=cwd, python_shell=False)
+    cmd_kwargs = dict(cwd=cwd, python_shell=False)
+    if env_vars:
+        cmd_kwargs.setdefault('env', {}).update(_format_env_vars(env_vars))
+
+    ret = __salt__['cmd.run_all'](cmd, **cmd_kwargs)
     if ret['retcode']:
         raise CommandNotFoundError('Could not find a `pip` binary')
 
@@ -1314,7 +1321,8 @@ def version(bin_env=None, cwd=None):
 
 def list_upgrades(bin_env=None,
                   user=None,
-                  cwd=None):
+                  cwd=None,
+                  env_vars=None):
     '''
     Check whether or not an upgrade is available for all packages
 
@@ -1329,7 +1337,7 @@ def list_upgrades(bin_env=None,
     cmd = _get_pip_bin(bin_env)
     cmd.extend(['list', '--outdated'])
 
-    pip_version = version(bin_env, cwd)
+    pip_version = version(bin_env, cwd, env_vars)
     # Pip started supporting the ability to output json starting with 9.0.0
     min_version = '9.0'
     if salt.utils.versions.compare(ver1=pip_version,
@@ -1340,6 +1348,8 @@ def list_upgrades(bin_env=None,
     cmd_kwargs = dict(cwd=cwd, runas=user)
     if bin_env and os.path.isdir(bin_env):
         cmd_kwargs['env'] = {'VIRTUAL_ENV': bin_env}
+    if env_vars:
+        cmd_kwargs.setdefault('env', {}).update(_format_env_vars(env_vars))
 
     result = __salt__['cmd.run_all'](cmd, **cmd_kwargs)
     if result['retcode']:
@@ -1395,7 +1405,8 @@ def list_upgrades(bin_env=None,
 def is_installed(pkgname=None,
                  bin_env=None,
                  user=None,
-                 cwd=None):
+                 cwd=None,
+                 env_vars=None):
     '''
     .. versionadded:: 2018.3.0
 
@@ -1417,7 +1428,7 @@ def is_installed(pkgname=None,
     '''
 
     cwd = _pip_bin_env(cwd, bin_env)
-    for line in freeze(bin_env=bin_env, user=user, cwd=cwd):
+    for line in freeze(bin_env=bin_env, user=user, cwd=cwd, env_vars=env_vars):
         if line.startswith('-f') or line.startswith('#'):
             # ignore -f line as it contains --find-links directory
             # ignore comment lines
@@ -1448,7 +1459,8 @@ def is_installed(pkgname=None,
 def upgrade_available(pkg,
                       bin_env=None,
                       user=None,
-                      cwd=None):
+                      cwd=None,
+                      env_vars=None):
     '''
     .. versionadded:: 2015.5.0
 
@@ -1462,13 +1474,14 @@ def upgrade_available(pkg,
     '''
 
     cwd = _pip_bin_env(cwd, bin_env)
-    return pkg in list_upgrades(bin_env=bin_env, user=user, cwd=cwd)
+    return pkg in list_upgrades(bin_env=bin_env, user=user, cwd=cwd, env_vars=env_vars)
 
 
 def upgrade(bin_env=None,
             user=None,
             cwd=None,
-            use_vt=False):
+            use_vt=False,
+            env_vars=None):
     '''
     .. versionadded:: 2015.5.0
 
@@ -1499,13 +1512,15 @@ def upgrade(bin_env=None,
     cmd = _get_pip_bin(bin_env)
     cmd.extend(['install', '-U'])
 
-    old = list_(bin_env=bin_env, user=user, cwd=cwd)
+    old = list_(bin_env=bin_env, user=user, cwd=cwd, env_vars=env_vars)
 
     cmd_kwargs = dict(cwd=cwd, use_vt=use_vt)
     if bin_env and os.path.isdir(bin_env):
         cmd_kwargs['env'] = {'VIRTUAL_ENV': bin_env}
+    if env_vars:
+        cmd_kwargs.setdefault('env', {}).update(_format_env_vars(env_vars))
     errors = False
-    for pkg in list_upgrades(bin_env=bin_env, user=user, cwd=cwd):
+    for pkg in list_upgrades(bin_env=bin_env, user=user, cwd=cwd, env_vars=env_vars):
         if pkg == 'salt':
             if salt.utils.platform.is_windows():
                 continue
@@ -1518,7 +1533,7 @@ def upgrade(bin_env=None,
         ret['result'] = False
 
     _clear_context(bin_env)
-    new = list_(bin_env=bin_env, user=user, cwd=cwd)
+    new = list_(bin_env=bin_env, user=user, cwd=cwd, env_vars=env_vars)
 
     ret['changes'] = salt.utils.data.compare_dicts(old, new)
 
@@ -1533,7 +1548,8 @@ def list_all_versions(pkg,
                       user=None,
                       cwd=None,
                       index_url=None,
-                      extra_index_url=None):
+                      extra_index_url=None,
+                      env_vars=None):
     '''
     .. versionadded:: 2017.7.3
 
@@ -1598,6 +1614,8 @@ def list_all_versions(pkg,
     cmd_kwargs = dict(cwd=cwd, runas=user, output_loglevel='quiet', redirect_stderr=True)
     if bin_env and os.path.isdir(bin_env):
         cmd_kwargs['env'] = {'VIRTUAL_ENV': bin_env}
+    if env_vars:
+        cmd_kwargs.setdefault('env', {}).update(_format_env_vars(env_vars))
 
     result = __salt__['cmd.run_all'](cmd, **cmd_kwargs)
 
