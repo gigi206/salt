@@ -183,9 +183,16 @@ def list_pkgs(versions_as_list=False, **kwargs):
     # Brew Cask doesn't provide a JSON interface, must be parsed the old way.
     try:
         cask_cmd = "cask list --versions"
-        out = _call_brew(cask_cmd)["stdout"]
+        lines = _call_brew(cask_cmd)['stdout'].splitlines()
 
-        for line in out.splitlines():
+        # 1st time that "cask list" is running we have this kind of output:
+        # ==> Tapping homebrew/cask
+        # Tapped 1 command and 3540 casks (3,656 files, 210MB).
+        if len(lines) > 1 and str(lines[0]).startswith("==>"):
+            # Remove the 2 1st lines
+            lines = lines[2:]
+
+        for line in lines:
             try:
                 name_and_versions = line.split(" ")
                 pkg_name = name_and_versions[0]
@@ -257,8 +264,12 @@ def latest_version(*names, **kwargs):
         refresh_db()
 
     def get_version(pkg_info):
-        # Perhaps this will need an option to pick devel by default
-        return pkg_info["versions"]["stable"] or pkg_info["versions"]["devel"]
+        # return only outdated packages and not pinned packages
+        if pkg_info['outdated'] is True and pkg_info['pinned'] is False:
+            # Perhaps this will need an option to pick devel by default
+            return pkg_info["versions"]["stable"] or pkg_info["versions"]["devel"]
+        else:
+            return ''
 
     versions_dict = dict(
         (key, get_version(val)) for key, val in six.iteritems(_info(*names))
