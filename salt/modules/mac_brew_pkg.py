@@ -23,7 +23,6 @@ import salt.utils.json
 import salt.utils.path
 import salt.utils.pkg
 import salt.utils.versions
-import salt.utils.platform
 from salt.exceptions import CommandExecutionError, MinionError
 
 # Import third party libs
@@ -142,38 +141,41 @@ def list_pkgs(versions_as_list=False, **kwargs):
         for name, version in combinations:
             __salt__['pkg_resource.add_pkg'](ret, name, version)
 
-    # brew cask is not yet available for Linux
-    if salt.utils.platform.is_darwin():
-        # Grab packages from brew cask, if available.
-        # Brew Cask doesn't provide a JSON interface, must be parsed the old way.
-        try:
-            cask_cmd = 'cask list --versions'
-            out = _call_brew(cask_cmd)['stdout']
+    # Grab packages from brew cask, if available.
+    # Brew Cask doesn't provide a JSON interface, must be parsed the old way.
+    try:
+        cask_cmd = 'cask list --versions'
+        out = _call_brew(cask_cmd)['stdout']
 
-            for line in out.splitlines():
-                try:
-                    name_and_versions = line.split(' ')
-                    pkg_name = name_and_versions[0]
+        for line in out.splitlines():
+            try:
+                name_and_versions = line.split(' ')
+                pkg_name = name_and_versions[0]
 
-                    # Get cask namespace
-                    info_cmd = 'cask info {}'.format(pkg_name)
-                    match = re.search(r'^From: .*/(.+?)/homebrew-(.+?)/.*$',
-                                    _call_brew(info_cmd)['stdout'], re.MULTILINE)
-                    if match:
-                        namespace = '/'.join((match.group(1).lower(),
-                                            match.group(2).lower()))
-                    else:
-                        namespace = 'homebrew/cask'
-
-                    name = '/'.join((namespace, pkg_name))
-                    installed_versions = name_and_versions[1:]
-                    key_func = functools.cmp_to_key(salt.utils.versions.version_cmp)
-                    newest_version = sorted(installed_versions, key=key_func).pop()
-                except ValueError:
+                # 1st time that "cask list" is running we have this kind of output:
+                # '==> Tapping homebrew/cask', 'Tapped 1 command and 3540 casks (3,656 files, 210MB).'
+                if line.startswith("==>"):
                     continue
-                __salt__['pkg_resource.add_pkg'](ret, name, newest_version)
-        except CommandExecutionError:
-            pass
+
+                # Get cask namespace
+                info_cmd = 'cask info {}'.format(pkg_name)
+                match = re.search(r'^From: .*/(.+?)/homebrew-(.+?)/.*$',
+                                _call_brew(info_cmd)['stdout'], re.MULTILINE)
+                if match:
+                    namespace = '/'.join((match.group(1).lower(),
+                                        match.group(2).lower()))
+                else:
+                    namespace = 'homebrew/cask'
+
+                name = '/'.join((namespace, pkg_name))
+                installed_versions = name_and_versions[1:]
+                key_func = functools.cmp_to_key(salt.utils.versions.version_cmp)
+                newest_version = sorted(installed_versions, key=key_func).pop()
+            except ValueError:
+                continue
+            __salt__['pkg_resource.add_pkg'](ret, name, newest_version)
+    except CommandExecutionError:
+        pass
 
     __salt__['pkg_resource.sort_pkglist'](ret)
     __context__['pkg.list_pkgs'] = copy.deepcopy(ret)
