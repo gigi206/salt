@@ -383,6 +383,7 @@ def _git_run(command, cwd=None, user=None, password=None, identity=None,
             ignore_retcode=ignore_retcode,
             redirect_stderr=redirect_stderr,
             output_encoding=output_encoding,
+            output_loglevel="quiet",
             **kwargs)
 
         if result['retcode'] == 0:
